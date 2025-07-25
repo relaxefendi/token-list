@@ -1,0 +1,13 @@
+{
+  "chainId": 101,
+  "address": "B6xy36XdN6JaSXEjhptRpGYKcTLexrkhs2EaCKYFoVoz",
+  "symbol": "BLAST",
+  "name": "Blast Token",
+  "decimals": 9,
+  "logoURI": "https://gateway.irys.xyz/33KaWTtq1giARKPX4NVRqifwY1yshGuLP9DAv7cVfE5W",
+  "tags": ["utility"],
+  "extensions": {
+    "website": "https://blast.io/en",
+    "description": "Blast is an Ethereum Layer 2 (L2) scaling solution designed to provide native yield for both ETH and stablecoins held on its network."
+  }
+}
