@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bodrum İlçe Tarım Müdürlüğü — Kurum Portalı</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/app.css" />
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <!-- LOGIN -->
+  <div id="login-screen" class="login-screen">
+    <div class="login-backdrop" aria-hidden="true"></div>
+    <form id="login-form" class="login-card" autocomplete="on">
+      <p class="login-brand">Bodrum İlçe Tarım Müdürlüğü</p>
+      <h1>Kurum Portalı</h1>
+      <p class="login-sub">Aynı ağdaki personel için işbirliği, dosya ve toplantı alanı</p>
+      <label>
+        <span>Kullanıcı adı</span>
+        <input type="text" name="username" id="login-username" required autofocus />
+      </label>
+      <label>
+        <span>Şifre</span>
+        <input type="password" name="password" id="login-password" required />
+      </label>
+      <p id="login-error" class="form-error" hidden></p>
+      <button type="submit" class="btn btn-primary">Giriş Yap</button>
+    </form>
+  </div>
+
+  <!-- APP -->
+  <div id="app" class="app" hidden>
+    <div class="ticker" id="ticker" aria-live="polite">
+      <div class="ticker-track" id="ticker-track"></div>
+    </div>
+
+    <header class="topbar">
+      <div class="brand-block">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <p class="brand-name" id="org-name">Bodrum İlçe Tarım Müdürlüğü</p>
+          <p class="brand-tag">Kurum İçi Portal</p>
+        </div>
+      </div>
+      <nav class="tabs" id="main-tabs" role="tablist">
+        <button type="button" class="tab active" data-tab="home">Ana Sayfa</button>
+        <button type="button" class="tab" data-tab="chat">Sohbet</button>
+        <button type="button" class="tab" data-tab="meet">Toplantı</button>
+        <button type="button" class="tab" data-tab="files">Dosyalar</button>
+        <button type="button" class="tab" data-tab="announce">Duyurular</button>
+        <button type="button" class="tab" data-tab="admin" id="tab-admin" hidden>Yönetim</button>
+      </nav>
+      <div class="user-chip">
+        <span id="current-user-name"></span>
+        <button type="button" class="btn btn-ghost" id="btn-logout">Çıkış</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <h2>Çevrimiçi</h2>
+        <ul id="online-list" class="online-list"></ul>
+        <div class="sidebar-help">
+          <h3>Ekran Yardımı</h3>
+          <p>Bir kullanıcıya tıklayarak ekran paylaşımı isteği gönderin.</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        <!-- HOME -->
+        <section id="panel-home" class="panel active">
+          <div class="home-hero">
+            <h1 id="home-greeting">Hoş geldiniz</h1>
+            <p>Sohbet, toplantı, dosya paylaşımı ve duyurular tek yerden.</p>
+          </div>
+          <div class="home-grid">
+            <div class="home-block">
+              <h2>Son önemli mesajlar</h2>
+              <ul id="important-feed" class="important-feed"></ul>
+            </div>
+            <div class="home-block">
+              <h2>Son duyurular</h2>
+              <ul id="home-announcements" class="announce-list compact"></ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- CHAT -->
+        <section id="panel-chat" class="panel">
+          <div class="chat-layout">
+            <div class="chat-messages" id="chat-messages"></div>
+            <form id="chat-form" class="chat-form">
+              <input type="text" id="chat-input" placeholder="Mesaj yazın…" maxlength="2000" autocomplete="off" />
+              <button type="submit" class="btn btn-primary">Gönder</button>
+            </form>
+          </div>
+        </section>
+
+        <!-- MEET -->
+        <section id="panel-meet" class="panel">
+          <div class="meet-toolbar">
+            <form id="meet-create" class="inline-form">
+              <input type="text" id="meet-title" placeholder="Toplantı başlığı" required />
+              <button type="submit" class="btn btn-primary">Toplantı Oluştur</button>
+            </form>
+            <ul id="meet-list" class="meet-list"></ul>
+          </div>
+          <div id="meet-room" class="meet-room" hidden>
+            <div class="meet-bar">
+              <strong id="meet-room-title"></strong>
+              <div class="meet-actions">
+                <button type="button" class="btn" id="btn-toggle-mic">Mikrofon</button>
+                <button type="button" class="btn" id="btn-toggle-cam">Kamera</button>
+                <button type="button" class="btn" id="btn-share-screen">Ekran Paylaş</button>
+                <button type="button" class="btn btn-danger" id="btn-leave-meet">Ayrıl</button>
+              </div>
+            </div>
+            <div class="meet-body">
+              <div id="video-grid" class="video-grid"></div>
+              <aside class="meet-chat">
+                <div id="meet-chat-messages" class="meet-chat-messages"></div>
+                <form id="meet-chat-form" class="chat-form">
+                  <input type="text" id="meet-chat-input" placeholder="Toplantı sohbeti…" />
+                  <button type="submit" class="btn btn-primary">Gönder</button>
+                </form>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <!-- FILES -->
+        <section id="panel-files" class="panel">
+          <div class="files-header">
+            <div>
+              <h1>Dosya Portalı</h1>
+              <p>Dosyalar şifreli saklanır. Silme kapalıdır; değişiklikler kayıt altına alınır.</p>
+            </div>
+            <form id="file-upload-form" class="inline-form">
+              <input type="file" id="file-input" required />
+              <button type="submit" class="btn btn-primary">Yükle</button>
+            </form>
+          </div>
+          <p id="files-edit-hint" class="hint"></p>
+          <table class="data-table" id="files-table">
+            <thead>
+              <tr>
+                <th>Dosya</th>
+                <th>Boyut</th>
+                <th>Sürüm</th>
+                <th>Yükleyen</th>
+                <th>Son değişiklik</th>
+                <th>İşlem</th>
+              </tr>
+            </thead>
+            <tbody id="files-tbody"></tbody>
+          </table>
+          <div id="file-audit" class="file-audit" hidden>
+            <h3>Denetim kaydı</h3>
+            <ul id="file-audit-list"></ul>
+          </div>
+        </section>
+
+        <!-- ANNOUNCEMENTS -->
+        <section id="panel-announce" class="panel">
+          <div class="announce-header">
+            <h1>Duyurular</h1>
+            <form id="announce-form" class="announce-form" hidden>
+              <input type="text" id="announce-title" placeholder="Başlık" required />
+              <textarea id="announce-body" placeholder="Duyuru metni" required rows="3"></textarea>
+              <button type="submit" class="btn btn-primary">Yayınla</button>
+            </form>
+          </div>
+          <ul id="announce-list" class="announce-list"></ul>
+        </section>
+
+        <!-- ADMIN -->
+        <section id="panel-admin" class="panel">
+          <h1>Yönetim Paneli</h1>
+          <div class="admin-grid">
+            <div class="admin-card">
+              <h2>Kullanıcılar</h2>
+              <form id="user-create-form" class="stack-form">
+                <input type="text" id="new-username" placeholder="Kullanıcı adı" required />
+                <input type="text" id="new-displayname" placeholder="Görünen ad" required />
+                <input type="password" id="new-password" placeholder="Şifre" required />
+                <label class="check"><input type="checkbox" id="new-important" /> Önemli mesaj yetkisi</label>
+                <label class="check"><input type="checkbox" id="new-edit-files" checked /> Dosya düzenleyebilir</label>
+                <label class="check"><input type="checkbox" id="new-chat" checked /> Sohbet</label>
+                <label class="check"><input type="checkbox" id="new-meet" checked /> Toplantı</label>
+                <label class="check"><input type="checkbox" id="new-files" checked /> Dosyalar</label>
+                <label class="check"><input type="checkbox" id="new-announce" /> Duyuru yayınlama</label>
+                <button type="submit" class="btn btn-primary">Kullanıcı Ekle</button>
+              </form>
+              <table class="data-table compact" id="admin-users-table">
+                <thead>
+                  <tr>
+                    <th>Ad</th>
+                    <th>Yetkiler</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="admin-users-tbody"></tbody>
+              </table>
+            </div>
+
+            <div class="admin-card">
+              <h2>Kayan Yazılar</h2>
+              <form id="ticker-form" class="inline-form">
+                <input type="text" id="ticker-text" placeholder="Yeni kayan yazı" required />
+                <button type="submit" class="btn btn-primary">Ekle</button>
+              </form>
+              <ul id="admin-ticker-list" class="admin-ticker-list"></ul>
+            </div>
+
+            <div class="admin-card">
+              <h2>Dosya Şifresi</h2>
+              <p class="hint">Şifreli dosyalara yönetim paneli üzerinden erişim. Değiştirince tüm dosyalar yeniden şifrelenir.</p>
+              <form id="enc-password-form" class="stack-form">
+                <input type="password" id="enc-current" placeholder="Mevcut şifre" required />
+                <input type="password" id="enc-new" placeholder="Yeni şifre" required />
+                <button type="submit" class="btn btn-primary">Şifreyi Değiştir</button>
+              </form>
+              <form id="enc-unlock-form" class="stack-form" style="margin-top:1rem">
+                <input type="password" id="enc-unlock" placeholder="Yönetim şifresi ile doğrula" required />
+                <button type="submit" class="btn">Doğrula</button>
+              </form>
+              <p id="enc-status" class="hint"></p>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Screen help overlay -->
+  <div id="help-overlay" class="overlay" hidden>
+    <div class="overlay-card wide">
+      <h2 id="help-title">Ekran Yardımı</h2>
+      <video id="help-remote-video" autoplay playsinline></video>
+      <video id="help-local-video" autoplay playsinline muted class="pip"></video>
+      <div class="overlay-actions">
+        <button type="button" class="btn" id="btn-help-share">Ekranımı Paylaş</button>
+        <button type="button" class="btn btn-danger" id="btn-help-end">Sonlandır</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="help-prompt" class="overlay" hidden>
+    <div class="overlay-card">
+      <h2>Ekran yardım isteği</h2>
+      <p id="help-prompt-text"></p>
+      <div class="overlay-actions">
+        <button type="button" class="btn btn-primary" id="btn-help-accept">Kabul</button>
+        <button type="button" class="btn" id="btn-help-decline">Reddet</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/webrtc.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
