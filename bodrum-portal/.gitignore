@@ -1,0 +1,10 @@
+node_modules/
+data/*
+!data/.gitkeep
+dosyalar/encrypted/*
+dosyalar/meta/*
+!dosyalar/encrypted/.gitkeep
+!dosyalar/meta/.gitkeep
+kısayol/
+*.log
+.DS_Store

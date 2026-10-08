@@ -1,0 +1,25 @@
+{
+  "name": "bodrum-tarim-portal",
+  "version": "1.0.0",
+  "description": "Bodrum İlçe Tarım Müdürlüğü - Kurum İçi İşbirliği Portalı",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "setup": "node server/setup.js",
+    "create-shortcut": "node scripts/create-shortcut.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "multer": "^1.4.5-lts.1",
+    "socket.io": "^4.8.1",
+    "uuid": "^11.0.3"
+  }
+}

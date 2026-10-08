@@ -1,0 +1,26 @@
+========================================================
+  Bodrum İlçe Tarım Müdürlüğü
+  Konferans ve Dosya Paylaşımı Programı
+========================================================
+
+HEDEF KLASÖR (istediğiniz yer):
+  C:\Users\Admin\Desktop\konferans ve dosya paylaşımı
+
+NASIL TAŞINIR?
+  A) Bu ZIP'i açın, çıkan klasörün içeriğini yukarıdaki
+     masaüstü klasörüne kopyalayın
+  B) veya MASAUSTUNE-KUR.bat'a çift tıklayın
+
+--- SUNUCU BİLGİSAYARINDA ---
+1) Node.js LTS: https://nodejs.org
+2) KURULUM.bat
+3) BASLAT.bat  →  http://localhost:3080
+4) admin / Admin123! ile giriş
+5) Yönetim → Sunucu IP girin → Kısayol yenile
+6) "kisayol" klasörünü ortak ağa koyun
+
+Diğer PC'ler ortak klasördeki .url kısayolu ile bağlanır.
+
+Varsayılan: admin / Admin123!
+Dosya şifresi: BodrumTarim2024!
+Port: 3080
