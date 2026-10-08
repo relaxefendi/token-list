@@ -878,6 +878,157 @@ button {
   max-width: 360px;
 }
 
+/* ── Call ringing UI ───────────────────────────────── */
+.call-ring-overlay {
+  background: rgba(15, 28, 20, 0.78);
+  z-index: 80;
+}
+
+.call-ring-card {
+  text-align: center;
+  width: min(380px, 100%);
+}
+
+.call-ring-logo {
+  color: var(--leaf);
+  margin: 0.5rem auto 1rem;
+  width: 96px;
+  height: 96px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(47, 93, 58, 0.12);
+  animation: ring-pulse 1.2s ease-in-out infinite;
+}
+
+.call-ring-logo.outgoing {
+  color: var(--wheat);
+  animation: ring-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ring-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(47, 93, 58, 0.45);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 18px rgba(47, 93, 58, 0);
+  }
+}
+
+.call-picker-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.call-videos {
+  position: relative;
+  background: #0f1c14;
+  border-radius: 10px;
+  overflow: hidden;
+  min-height: 280px;
+}
+
+.call-videos video#call-remote-video {
+  width: 100%;
+  max-height: 55vh;
+  background: #000;
+  display: block;
+}
+
+.call-active-card .pip {
+  position: absolute;
+  width: 160px;
+  right: 1rem;
+  bottom: 1rem;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  max-height: none;
+}
+
+.call-transfer {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.call-file-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  width: 100%;
+  font-size: 0.88rem;
+}
+
+.call-file-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.meet-file-share {
+  padding: 0.65rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.desktop-call-badge {
+  position: fixed;
+  top: 48px;
+  right: 18px;
+  z-index: 90;
+  background: var(--soil);
+  color: #fff;
+  border-radius: 14px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  animation: badge-bounce 1s ease infinite;
+  border: 2px solid var(--wheat);
+}
+
+.desktop-call-badge-inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.desktop-call-icon {
+  font-size: 1.6rem;
+  display: inline-block;
+  animation: ring-shake 0.5s ease infinite;
+}
+
+.desktop-call-badge small {
+  display: block;
+  opacity: 0.8;
+  font-size: 0.75rem;
+}
+
+@keyframes badge-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes ring-shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(12deg); }
+  75% { transform: rotate(-12deg); }
+}
+
+.stack-form label span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
 [hidden] {
   display: none !important;
 }

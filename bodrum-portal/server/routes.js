@@ -42,7 +42,18 @@ router.post('/auth/logout', (req, res) => {
 });
 
 router.get('/auth/me', requireAuth, (req, res) => {
-  res.json({ user: req.user, orgName: getSetting('org_name') });
+  const serverHost = getSetting('server_host') || '';
+  const serverPort = getSetting('server_port') || String(Number(process.env.PORT) || 3080);
+  const portalUrl = serverHost
+    ? `http://${serverHost}:${serverPort}`
+    : null;
+  res.json({
+    user: req.user,
+    orgName: getSetting('org_name'),
+    serverHost,
+    serverPort,
+    portalUrl,
+  });
 });
 
 // ── Users (admin) ─────────────────────────────────────
@@ -361,15 +372,62 @@ router.put('/admin/settings/encryption-password', requireAdmin, (req, res) => {
 });
 
 router.get('/admin/settings', requireAdmin, (req, res) => {
+  const serverHost = getSetting('server_host') || '';
+  const serverPort = getSetting('server_port') || String(Number(process.env.PORT) || 3080);
   res.json({
     orgName: getSetting('org_name'),
+    serverHost,
+    serverPort,
+    portalUrl: serverHost ? `http://${serverHost}:${serverPort}` : '',
     hasEncryptionPassword: !!getSetting('file_encryption_password'),
   });
 });
 
 router.put('/admin/settings', requireAdmin, (req, res) => {
   if (req.body.orgName) setSetting('org_name', req.body.orgName);
-  res.json({ ok: true });
+  if (req.body.serverHost !== undefined) {
+    const host = String(req.body.serverHost || '').trim().replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
+    setSetting('server_host', host);
+  }
+  if (req.body.serverPort !== undefined) {
+    const p = Number(req.body.serverPort);
+    if (!Number.isFinite(p) || p < 1 || p > 65535) {
+      return res.status(400).json({ error: 'Geçersiz port (1–65535)' });
+    }
+    setSetting('server_port', String(p));
+  }
+  const serverHost = getSetting('server_host') || '';
+  const serverPort = getSetting('server_port') || '3080';
+  res.json({
+    ok: true,
+    portalUrl: serverHost ? `http://${serverHost}:${serverPort}` : '',
+  });
+});
+
+router.post('/admin/settings/regenerate-shortcut', requireAdmin, (req, res) => {
+  const { spawnSync } = require('child_process');
+  const host = getSetting('server_host');
+  if (!host) {
+    return res.status(400).json({ error: 'Önce sunucu IP adresini kaydedin' });
+  }
+  const script = path.join(__dirname, '..', 'scripts', 'create-shortcut.js');
+  const result = spawnSync(process.execPath, [script, host], {
+    cwd: path.join(__dirname, '..'),
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) {
+    return res.status(500).json({
+      error: 'Kısayol üretilemedi',
+      detail: result.stderr || result.stdout,
+    });
+  }
+  const port = getSetting('server_port') || '3080';
+  res.json({
+    ok: true,
+    portalUrl: `http://${host}:${port}`,
+    shortcutDir: 'kısayol/',
+    output: result.stdout,
+  });
 });
 
 // ── Meetings ──────────────────────────────────────────

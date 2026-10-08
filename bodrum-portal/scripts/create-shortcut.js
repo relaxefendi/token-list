@@ -19,8 +19,27 @@ function lanIp() {
   return 'SUNUCU_IP';
 }
 
-const ip = process.argv[2] || lanIp();
-const url = `http://${ip}:${PORT}`;
+// Prefer admin-configured host/port from DB when available
+function configuredHostPort() {
+  try {
+    const Database = require('better-sqlite3');
+    const dbPath = path.join(__dirname, '..', 'data', 'portal.db');
+    if (!require('fs').existsSync(dbPath)) return null;
+    const db = new Database(dbPath, { readonly: true });
+    const host = db.prepare("SELECT value FROM settings WHERE key = 'server_host'").get();
+    const port = db.prepare("SELECT value FROM settings WHERE key = 'server_port'").get();
+    db.close();
+    if (host && host.value) {
+      return { host: host.value, port: Number(port && port.value) || PORT };
+    }
+  } catch (_) {}
+  return null;
+}
+
+const configured = configuredHostPort();
+const ip = process.argv[2] || (configured && configured.host) || lanIp();
+const effectivePort = (configured && !process.argv[2] && configured.port) || PORT;
+const url = `http://${ip}:${effectivePort}`;
 const outDir = path.join(__dirname, '..', 'kısayol');
 
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });

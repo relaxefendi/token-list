@@ -93,4 +93,13 @@ const API = {
       body: { currentPassword, newPassword },
     });
   },
+  adminSettings() {
+    return this.request('/admin/settings');
+  },
+  saveSettings(data) {
+    return this.request('/admin/settings', { method: 'PUT', body: data });
+  },
+  regenerateShortcut() {
+    return this.request('/admin/settings/regenerate-shortcut', { method: 'POST', body: {} });
+  },
 };

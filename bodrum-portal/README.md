@@ -7,11 +7,12 @@ Aynı yerel ağ (LAN) üzerindeki bilgisayarlar için tek sunuculu işbirliği u
 - **Ana sayfa** — önemli mesajlar (kırmızı nokta), duyurular özeti
 - **Kayan yazı** — üst şeritte akan metinler; yönetim panelinden düzenlenir
 - **Sohbet** — genel sohbet odası; “önemli” kullanıcı mesajları vurgulanır
-- **Toplantı** — ses, görüntü, ekran paylaşımı ve toplantı sohbeti (WebRTC)
-- **Ekran yardımı** — çevrimiçi listeden kullanıcıya tıklayarak 1:1 ekran paylaşımı
+- **Toplantı (video konferans)** — ses, görüntü, ekran paylaşımı, sohbet ve dosya paylaşımı
+- **1:1 arama** — görüntülü / sesli / ekran yardımı; arananın ekranında zil + arama logosu
+- **Çağrı içi dosya transferi** — görüşme sırasında dosya gönderimi
 - **Dosya portalı** — AES-256-GCM ile şifreli saklama; silme kapalı; değişiklik denetim kaydı
 - **Duyurular** — kurum duyuruları
-- **Yönetim paneli** — kullanıcılar, yetkiler, kayan yazı, dosya şifresi
+- **Yönetim paneli** — kullanıcılar, yetkiler, kayan yazı, **sunucu IP**, dosya şifresi
 
 ## Kurulum (sunucu bilgisayarı)
 

@@ -5,10 +5,21 @@
     importantMessages: [],
     currentMeeting: null,
     mesh: null,
-    help: null,
-    pendingHelp: null,
+    call: null,
+    pendingCall: null,
+    outgoingCall: null,
+    pickerUser: null,
+    ringtone: new Ringtone(),
+    callFileReceiver: null,
+    meetFileReceiver: null,
     micOn: true,
     camOn: true,
+  };
+
+  const CALL_TYPE_LABEL = {
+    video: 'Görüntülü arama',
+    audio: 'Sesli arama',
+    screen: 'Ekran yardımı',
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -68,6 +79,10 @@
 
   $('#btn-logout').addEventListener('click', async () => {
     leaveMeeting();
+    if (state.call && state.call.callId) {
+      state.socket.emit('call:end', { callId: state.call.callId });
+    }
+    endCallUi();
     if (state.socket) state.socket.disconnect();
     await API.logout();
     location.reload();
@@ -157,23 +172,86 @@
       box.scrollTop = box.scrollHeight;
     });
 
-    state.socket.on('help:incoming', ({ fromSocketId, fromUser }) => {
-      state.pendingHelp = { fromSocketId, fromUser };
-      $('#help-prompt-text').textContent = `${fromUser.displayName} ekran yardımı istiyor.`;
-      $('#help-prompt').hidden = false;
+    state.socket.on('meet:file-meta', (meta) => {
+      toast(`${meta.displayName} dosya paylaşıyor: ${meta.name}`);
     });
 
-    state.socket.on('help:accepted', async ({ fromSocketId }) => {
-      await startHelpAsCaller(fromSocketId);
+    // ── Calls ─────────────────────────────────────────
+    state.socket.on('call:incoming', (payload) => {
+      showIncomingCall(payload);
     });
 
-    state.socket.on('help:signal', async ({ from, signal }) => {
-      if (state.help) await state.help.handleSignal(signal);
+    state.socket.on('call:ringing', (payload) => {
+      state.outgoingCall = payload;
+      $('#outgoing-call-text').textContent =
+        `${payload.toUser.displayName} — ${CALL_TYPE_LABEL[payload.type] || payload.type}`;
+      $('#outgoing-call').hidden = false;
+      state.ringtone.start();
     });
 
-    state.socket.on('help:ended', () => {
-      endHelpUi();
-      toast('Ekran yardımı sonlandı');
+    state.socket.on('call:accepted', async (payload) => {
+      hideRingUi();
+      await startCallAsCaller(payload);
+    });
+
+    state.socket.on('call:accepted-ack', () => {
+      // Callee already prepared media on accept click
+      hideRingUi();
+    });
+
+    state.socket.on('call:signal', async ({ signal }) => {
+      if (state.call) await state.call.handleSignal(signal);
+    });
+
+    state.socket.on('call:rejected', () => {
+      hideRingUi();
+      toast('Arama reddedildi');
+    });
+
+    state.socket.on('call:cancelled', () => {
+      hideRingUi();
+      toast('Arama iptal edildi');
+    });
+
+    state.socket.on('call:ended', () => {
+      endCallUi();
+      toast('Görüşme sonlandı');
+    });
+
+    state.socket.on('call:failed', ({ reason }) => {
+      hideRingUi();
+      toast(reason || 'Arama başarısız');
+    });
+
+    state.socket.on('call:file-chunk', (payload) => {
+      const isMeet = String(payload.callId || '').startsWith('meet-');
+      if (isMeet) {
+        if (!state.meetFileReceiver) {
+          state.meetFileReceiver = createFileReceiver((file) => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span>${escapeHtml(file.fromUser?.displayName || '')}: ${escapeHtml(file.name)}</span>
+              <a class="btn btn-sm" href="${file.url}" download="${escapeHtml(file.name)}">İndir</a>`;
+            $('#meet-received-files').appendChild(li);
+            toast(`Toplantı dosyası: ${file.name}`);
+          });
+        }
+        state.meetFileReceiver(payload);
+        return;
+      }
+      if (!state.callFileReceiver) {
+        state.callFileReceiver = createFileReceiver((file) => {
+          const li = document.createElement('li');
+          li.innerHTML = `<span>${escapeHtml(file.fromUser?.displayName || '')}: ${escapeHtml(file.name)} (${formatBytes(file.size)})</span>
+            <a class="btn btn-sm" href="${file.url}" download="${escapeHtml(file.name)}">İndir</a>`;
+          $('#call-received-files').appendChild(li);
+          toast(`Dosya alındı: ${file.name}`);
+        });
+      }
+      const prog = state.callFileReceiver(payload);
+      if (prog) {
+        $('#call-transfer-status').textContent =
+          `Alınıyor: ${prog.name} (${prog.received}/${prog.total})`;
+      }
     });
   }
 
@@ -185,7 +263,7 @@
       .replace(/"/g, '&quot;');
   }
 
-  // ── Online list / help request ──────────────────────
+  // ── Online list / call picker ───────────────────────
   function renderOnline(users) {
     const list = $('#online-list');
     list.innerHTML = '';
@@ -196,81 +274,201 @@
         li.insertAdjacentHTML('beforeend', ' <span class="red-dot" title="Önemli kullanıcı" style="margin-left:auto"></span>');
       }
       if (u.id !== state.user.id) {
-        li.title = 'Ekran yardımı iste';
-        li.addEventListener('click', () => {
-          state.socket.emit('help:request', { targetUserId: u.id });
-          toast(`${u.displayName} kullanıcısına yardım isteği gönderildi`);
-        });
+        li.title = 'Ara / ekran yardımı';
+        li.addEventListener('click', () => openCallPicker(u));
       }
       list.appendChild(li);
     });
   }
 
-  $('#btn-help-accept').addEventListener('click', async () => {
-    $('#help-prompt').hidden = true;
-    if (!state.pendingHelp) return;
-    const { fromSocketId, fromUser } = state.pendingHelp;
-    state.socket.emit('help:accept', { toSocketId: fromSocketId });
-    await startHelpAsAnswerer(fromSocketId, fromUser);
-  });
-
-  $('#btn-help-decline').addEventListener('click', () => {
-    $('#help-prompt').hidden = true;
-    state.pendingHelp = null;
-  });
-
-  async function startHelpAsCaller(remoteSocketId) {
-    state.help = new HelpSession();
-    state.help.setHandlers({
-      sendSignal: (to, signal) => state.socket.emit('help:signal', { to, signal }),
-      onRemoteStream: (stream) => {
-        $('#help-remote-video').srcObject = stream;
-      },
-    });
-    const local = await state.help.startAsCaller(remoteSocketId, true);
-    $('#help-local-video').srcObject = local;
-    $('#help-title').textContent = 'Ekran Yardımı (paylaşıyorsunuz)';
-    $('#help-overlay').hidden = false;
+  function openCallPicker(user) {
+    state.pickerUser = user;
+    $('#call-picker-name').textContent = user.displayName;
+    $('#call-picker').hidden = false;
   }
 
-  async function startHelpAsAnswerer(fromSocketId, fromUser) {
-    state.help = new HelpSession();
-    state.help.setHandlers({
-      sendSignal: (to, signal) => state.socket.emit('help:signal', { to, signal }),
-      onRemoteStream: (stream) => {
-        $('#help-remote-video').srcObject = stream;
-      },
-    });
-    const local = await state.help.acceptIncoming(fromSocketId, false);
-    $('#help-local-video').srcObject = local;
-    $('#help-title').textContent = `Ekran Yardımı — ${fromUser.displayName}`;
-    $('#help-overlay').hidden = false;
-  }
+  $('#btn-call-picker-cancel').addEventListener('click', () => {
+    $('#call-picker').hidden = true;
+    state.pickerUser = null;
+  });
 
-  $('#btn-help-share').addEventListener('click', async () => {
-    if (!state.help) return;
+  $$('.call-type-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (!state.pickerUser) return;
+      const type = btn.dataset.callType;
+      $('#call-picker').hidden = true;
+      state.socket.emit('call:invite', {
+        targetUserId: state.pickerUser.id,
+        type,
+      });
+      toast(`${state.pickerUser.displayName} aranıyor…`);
+      state.pickerUser = null;
+    });
+  });
+
+  function showIncomingCall(payload) {
+    state.pendingCall = payload;
+    const label = CALL_TYPE_LABEL[payload.type] || payload.type;
+    $('#incoming-call-title').textContent = label;
+    $('#incoming-call-text').textContent =
+      `${payload.fromUser.displayName} sizi arıyor`;
+    $('#incoming-call').hidden = false;
+    $('#desktop-call-name').textContent = payload.fromUser.displayName;
+    $('#desktop-call-sub').textContent = label;
+    $('#desktop-call-badge').hidden = false;
+    state.ringtone.start();
     try {
-      const stream = await state.help.shareScreen();
-      $('#help-local-video').srcObject = stream;
+      if (document.hidden && Notification.permission === 'granted') {
+        new Notification('Gelen arama', {
+          body: `${payload.fromUser.displayName} — ${label}`,
+        });
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    } catch (_) {}
+  }
+
+  function hideRingUi() {
+    state.ringtone.stop();
+    $('#incoming-call').hidden = true;
+    $('#outgoing-call').hidden = true;
+    $('#desktop-call-badge').hidden = true;
+    state.pendingCall = null;
+    state.outgoingCall = null;
+  }
+
+  $('#desktop-call-badge').addEventListener('click', () => {
+    if (state.pendingCall) $('#incoming-call').hidden = false;
+  });
+
+  $('#btn-call-accept').addEventListener('click', async () => {
+    if (!state.pendingCall) return;
+    const pending = state.pendingCall;
+    hideRingUi();
+    try {
+      // Prepare WebRTC before telling caller — avoids missing the offer
+      wireCallSession(pending.callId);
+      const local = await state.call.prepareAsCallee(pending.fromSocketId, pending.type);
+      $('#call-local-video').srcObject = local;
+      $('#call-title').textContent =
+        `${CALL_TYPE_LABEL[pending.type] || 'Görüşme'} — ${pending.fromUser.displayName}`;
+      $('#call-overlay').hidden = false;
+      $('#btn-call-toggle-cam').hidden = pending.type === 'audio';
+      state.socket.emit('call:accept', { callId: pending.callId });
     } catch (e) {
-      toast(e.message || 'Ekran paylaşılamadı');
+      toast('Kamera/mikrofon açılamadı: ' + e.message);
+      state.socket.emit('call:reject', { callId: pending.callId });
+      endCallUi();
     }
   });
 
-  $('#btn-help-end').addEventListener('click', () => {
-    if (state.help && state.help.remoteSocketId) {
-      state.socket.emit('help:end', { to: state.help.remoteSocketId });
-    }
-    endHelpUi();
+  $('#btn-call-reject').addEventListener('click', () => {
+    if (!state.pendingCall) return;
+    state.socket.emit('call:reject', { callId: state.pendingCall.callId });
+    hideRingUi();
   });
 
-  function endHelpUi() {
-    if (state.help) state.help.end();
-    state.help = null;
-    state.pendingHelp = null;
-    $('#help-remote-video').srcObject = null;
-    $('#help-local-video').srcObject = null;
-    $('#help-overlay').hidden = true;
+  $('#btn-call-cancel').addEventListener('click', () => {
+    if (!state.outgoingCall) return;
+    state.socket.emit('call:cancel', { callId: state.outgoingCall.callId });
+    hideRingUi();
+  });
+
+  function wireCallSession(callId) {
+    state.call = new CallSession();
+    state.call.callId = callId;
+    state.call.setHandlers({
+      sendSignal: (to, signal) =>
+        state.socket.emit('call:signal', { callId, to, signal }),
+      onRemoteStream: (stream) => {
+        $('#call-remote-video').srcObject = stream;
+      },
+    });
+    state.callFileReceiver = null;
+    $('#call-received-files').innerHTML = '';
+    $('#call-transfer-status').textContent = '';
+  }
+
+  async function startCallAsCaller(payload) {
+    try {
+      wireCallSession(payload.callId);
+      const local = await state.call.startAsCaller(payload.fromSocketId, payload.type);
+      $('#call-local-video').srcObject = local;
+      $('#call-title').textContent =
+        `${CALL_TYPE_LABEL[payload.type] || 'Görüşme'} — bağlandı`;
+      $('#call-overlay').hidden = false;
+      $('#btn-call-toggle-cam').hidden = payload.type === 'audio';
+    } catch (e) {
+      toast('Kamera/mikrofon açılamadı: ' + e.message);
+      state.socket.emit('call:end', { callId: payload.callId });
+      endCallUi();
+    }
+  }
+
+  $('#btn-call-end').addEventListener('click', () => {
+    if (state.call && state.call.callId) {
+      state.socket.emit('call:end', { callId: state.call.callId });
+    }
+    endCallUi();
+  });
+
+  $('#btn-call-toggle-mic').addEventListener('click', () => {
+    if (!state.call) return;
+    state.call.micOn = !state.call.micOn;
+    state.call.toggleTrack('audio', state.call.micOn);
+    $('#btn-call-toggle-mic').textContent = state.call.micOn ? 'Mikrofon' : 'Mikrofon Kapalı';
+  });
+
+  $('#btn-call-toggle-cam').addEventListener('click', () => {
+    if (!state.call) return;
+    state.call.camOn = !state.call.camOn;
+    state.call.toggleTrack('video', state.call.camOn);
+    $('#btn-call-toggle-cam').textContent = state.call.camOn ? 'Kamera' : 'Kamera Kapalı';
+  });
+
+  $('#btn-call-share').addEventListener('click', async () => {
+    if (!state.call) return;
+    try {
+      const stream = await state.call.shareScreen();
+      $('#call-local-video').srcObject = stream;
+      toast('Ekran paylaşımı başladı');
+    } catch (e) {
+      toast(e.message || 'Paylaşım iptal');
+    }
+  });
+
+  $('#call-file-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file || !state.call || !state.call.remoteSocketId) return;
+    try {
+      $('#call-transfer-status').textContent = `Gönderiliyor: ${file.name}`;
+      await sendFileOverSocket({
+        socket: state.socket,
+        event: 'call:file-chunk',
+        to: state.call.remoteSocketId,
+        callId: state.call.callId,
+        file,
+        onProgress: (i, total) => {
+          $('#call-transfer-status').textContent =
+            `Gönderiliyor: ${file.name} (${i}/${total})`;
+        },
+      });
+      $('#call-transfer-status').textContent = `Gönderildi: ${file.name}`;
+      toast('Dosya gönderildi');
+    } catch (ex) {
+      toast('Dosya gönderilemedi: ' + ex.message);
+    }
+  });
+
+  function endCallUi() {
+    hideRingUi();
+    if (state.call) state.call.end();
+    state.call = null;
+    $('#call-remote-video').srcObject = null;
+    $('#call-local-video').srcObject = null;
+    $('#call-overlay').hidden = true;
+    $('#call-transfer-status').textContent = '';
   }
 
   // ── Ticker ──────────────────────────────────────────
@@ -594,12 +792,80 @@
     input.value = '';
   });
 
+  // Meeting file transfer (socket relay to peers in room via call:file-chunk style)
+  $('#meet-file-input')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file || !state.currentMeeting || !state.mesh) return;
+    const peerIds = [...state.mesh.peers.keys()];
+    if (!peerIds.length) {
+      toast('Odada başka katılımcı yok');
+      return;
+    }
+    state.socket.emit('meet:file-meta', {
+      roomId: state.currentMeeting,
+      name: file.name,
+      size: file.size,
+      mimeType: file.type,
+    });
+    try {
+      for (const peerId of peerIds) {
+        await sendFileOverSocket({
+          socket: state.socket,
+          event: 'call:file-chunk',
+          to: peerId,
+          callId: `meet-${state.currentMeeting}`,
+          file,
+        });
+      }
+      toast('Dosya toplantıya gönderildi');
+    } catch (ex) {
+      toast(ex.message);
+    }
+  });
+
   // ── Admin ───────────────────────────────────────────
   async function loadAdmin() {
-    const [{ users }, { items }] = await Promise.all([API.adminUsers(), API.adminTicker()]);
+    const [{ users }, { items }, settings] = await Promise.all([
+      API.adminUsers(),
+      API.adminTicker(),
+      API.adminSettings(),
+    ]);
     renderAdminUsers(users);
     renderAdminTicker(items);
+    $('#server-host').value = settings.serverHost || '';
+    $('#server-port').value = settings.serverPort || 3080;
+    $('#server-url-preview').textContent = settings.portalUrl
+      ? `Portal adresi: ${settings.portalUrl}`
+      : 'Henüz sunucu IP girilmedi.';
   }
+
+  $('#server-ip-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      const r = await API.saveSettings({
+        serverHost: $('#server-host').value.trim(),
+        serverPort: Number($('#server-port').value),
+      });
+      $('#server-url-preview').textContent = r.portalUrl
+        ? `Portal adresi: ${r.portalUrl}`
+        : 'Kaydedildi.';
+      toast('Sunucu adresi kaydedildi');
+    } catch (ex) {
+      toast(ex.message);
+    }
+  });
+
+  $('#btn-regen-shortcut')?.addEventListener('click', async () => {
+    try {
+      const r = await API.regenerateShortcut();
+      $('#shortcut-status').textContent =
+        `Kısayol yenilendi → ${r.shortcutDir} (${r.portalUrl})`;
+      toast('Ortak klasör kısayolu oluşturuldu');
+    } catch (ex) {
+      toast(ex.message);
+    }
+  });
 
   function renderAdminUsers(users) {
     $('#admin-users-tbody').innerHTML = users

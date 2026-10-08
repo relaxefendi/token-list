@@ -64,8 +64,8 @@
         <h2>Çevrimiçi</h2>
         <ul id="online-list" class="online-list"></ul>
         <div class="sidebar-help">
-          <h3>Ekran Yardımı</h3>
-          <p>Bir kullanıcıya tıklayarak ekran paylaşımı isteği gönderin.</p>
+          <h3>Arama / Yardım</h3>
+          <p>Kullanıcıya tıklayın: görüntülü arama, sesli arama veya ekran yardımı.</p>
         </div>
       </aside>
 
@@ -126,6 +126,13 @@
                   <input type="text" id="meet-chat-input" placeholder="Toplantı sohbeti…" />
                   <button type="submit" class="btn btn-primary">Gönder</button>
                 </form>
+                <div class="meet-file-share">
+                  <label class="btn btn-sm">
+                    Dosya Paylaş
+                    <input type="file" id="meet-file-input" hidden />
+                  </label>
+                  <ul id="meet-received-files" class="call-file-list"></ul>
+                </div>
               </aside>
             </div>
           </div>
@@ -216,6 +223,25 @@
             </div>
 
             <div class="admin-card">
+              <h2>Sunucu Adresi (LAN)</h2>
+              <p class="hint">Kurum ağındaki sunucu IP’sini girin. Personel bu adresten bağlanır; kısayol da buna göre üretilir.</p>
+              <form id="server-ip-form" class="stack-form">
+                <label>
+                  <span>Sunucu IP / host</span>
+                  <input type="text" id="server-host" placeholder="örn. 192.168.1.50" required />
+                </label>
+                <label>
+                  <span>Port</span>
+                  <input type="number" id="server-port" min="1" max="65535" value="3080" required />
+                </label>
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+              </form>
+              <p id="server-url-preview" class="hint"></p>
+              <button type="button" class="btn" id="btn-regen-shortcut">Ortak Klasör Kısayolunu Yenile</button>
+              <p id="shortcut-status" class="hint"></p>
+            </div>
+
+            <div class="admin-card">
               <h2>Dosya Şifresi</h2>
               <p class="hint">Şifreli dosyalara yönetim paneli üzerinden erişim. Değiştirince tüm dosyalar yeniden şifrelenir.</p>
               <form id="enc-password-form" class="stack-form">
@@ -235,26 +261,87 @@
     </div>
   </div>
 
-  <!-- Screen help overlay -->
-  <div id="help-overlay" class="overlay" hidden>
-    <div class="overlay-card wide">
-      <h2 id="help-title">Ekran Yardımı</h2>
-      <video id="help-remote-video" autoplay playsinline></video>
-      <video id="help-local-video" autoplay playsinline muted class="pip"></video>
-      <div class="overlay-actions">
-        <button type="button" class="btn" id="btn-help-share">Ekranımı Paylaş</button>
-        <button type="button" class="btn btn-danger" id="btn-help-end">Sonlandır</button>
+  <!-- Call action picker -->
+  <div id="call-picker" class="overlay" hidden>
+    <div class="overlay-card">
+      <h2 id="call-picker-name">Ara</h2>
+      <p class="hint">Arama türünü seçin</p>
+      <div class="call-picker-actions">
+        <button type="button" class="btn btn-primary call-type-btn" data-call-type="video">Görüntülü Ara</button>
+        <button type="button" class="btn call-type-btn" data-call-type="audio">Sesli Ara</button>
+        <button type="button" class="btn call-type-btn" data-call-type="screen">Ekran Yardımı</button>
+        <button type="button" class="btn" id="btn-call-picker-cancel">Vazgeç</button>
       </div>
     </div>
   </div>
 
-  <div id="help-prompt" class="overlay" hidden>
-    <div class="overlay-card">
-      <h2>Ekran yardım isteği</h2>
-      <p id="help-prompt-text"></p>
+  <!-- Incoming call (rings on callee desktop) -->
+  <div id="incoming-call" class="overlay call-ring-overlay" hidden>
+    <div class="overlay-card call-ring-card">
+      <div class="call-ring-logo" aria-hidden="true">
+        <svg viewBox="0 0 64 64" width="72" height="72">
+          <circle cx="32" cy="32" r="30" fill="currentColor" opacity="0.15"/>
+          <path fill="currentColor" d="M44.5 38.2c-1.2-.6-3.5-1.7-4-1.9-.6-.2-1-.3-1.5.3-.4.6-1.7 2.1-2.1 2.5-.4.4-.8.5-1.5.2-1.5-.7-4.6-2.1-7.2-5.1-2.1-2.4-3.4-5.1-3.8-6-.4-.9 0-1.3.3-1.7.3-.3.6-.8.9-1.2.3-.4.4-.7.6-1.1.2-.4.1-.8 0-1.1-.1-.3-1.5-3.6-2-4.9-.5-1.3-1.1-1.1-1.5-1.1h-1.3c-.4 0-1.1.2-1.7.8-.6.6-2.2 2.2-2.2 5.3s2.3 6.1 2.6 6.5c.3.4 4.5 6.9 11 9.6 4.1 1.7 5.7 1.8 6.7 1.6 1.1-.2 3.3-1.3 3.8-2.7.5-1.3.5-2.5.3-2.7-.1-.3-.5-.5-1.1-.8z"/>
+        </svg>
+      </div>
+      <h2 id="incoming-call-title">Gelen arama</h2>
+      <p id="incoming-call-text"></p>
       <div class="overlay-actions">
-        <button type="button" class="btn btn-primary" id="btn-help-accept">Kabul</button>
-        <button type="button" class="btn" id="btn-help-decline">Reddet</button>
+        <button type="button" class="btn btn-primary" id="btn-call-accept">Cevapla</button>
+        <button type="button" class="btn btn-danger" id="btn-call-reject">Reddet</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Outgoing ringing -->
+  <div id="outgoing-call" class="overlay call-ring-overlay" hidden>
+    <div class="overlay-card call-ring-card">
+      <div class="call-ring-logo outgoing" aria-hidden="true">
+        <svg viewBox="0 0 64 64" width="72" height="72">
+          <circle cx="32" cy="32" r="30" fill="currentColor" opacity="0.15"/>
+          <path fill="currentColor" d="M44.5 38.2c-1.2-.6-3.5-1.7-4-1.9-.6-.2-1-.3-1.5.3-.4.6-1.7 2.1-2.1 2.5-.4.4-.8.5-1.5.2-1.5-.7-4.6-2.1-7.2-5.1-2.1-2.4-3.4-5.1-3.8-6-.4-.9 0-1.3.3-1.7.3-.3.6-.8.9-1.2.3-.4.4-.7.6-1.1.2-.4.1-.8 0-1.1-.1-.3-1.5-3.6-2-4.9-.5-1.3-1.1-1.1-1.5-1.1h-1.3c-.4 0-1.1.2-1.7.8-.6.6-2.2 2.2-2.2 5.3s2.3 6.1 2.6 6.5c.3.4 4.5 6.9 11 9.6 4.1 1.7 5.7 1.8 6.7 1.6 1.1-.2 3.3-1.3 3.8-2.7.5-1.3.5-2.5.3-2.7-.1-.3-.5-.5-1.1-.8z"/>
+        </svg>
+      </div>
+      <h2>Aranıyor…</h2>
+      <p id="outgoing-call-text"></p>
+      <div class="overlay-actions">
+        <button type="button" class="btn btn-danger" id="btn-call-cancel">İptal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active call / video conference -->
+  <div id="call-overlay" class="overlay" hidden>
+    <div class="overlay-card wide call-active-card">
+      <h2 id="call-title">Görüşme</h2>
+      <div class="call-videos">
+        <video id="call-remote-video" autoplay playsinline></video>
+        <video id="call-local-video" autoplay playsinline muted class="pip"></video>
+      </div>
+      <div class="call-transfer">
+        <label class="btn btn-sm">
+          Dosya Gönder
+          <input type="file" id="call-file-input" hidden />
+        </label>
+        <div id="call-transfer-status" class="hint"></div>
+        <ul id="call-received-files" class="call-file-list"></ul>
+      </div>
+      <div class="overlay-actions">
+        <button type="button" class="btn" id="btn-call-toggle-mic">Mikrofon</button>
+        <button type="button" class="btn" id="btn-call-toggle-cam">Kamera</button>
+        <button type="button" class="btn" id="btn-call-share">Ekran Paylaş</button>
+        <button type="button" class="btn btn-danger" id="btn-call-end">Sonlandır</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Desktop floating call badge (minimized ring indicator) -->
+  <div id="desktop-call-badge" class="desktop-call-badge" hidden>
+    <div class="desktop-call-badge-inner">
+      <span class="desktop-call-icon" aria-hidden="true">📞</span>
+      <div>
+        <strong id="desktop-call-name"></strong>
+        <small id="desktop-call-sub">Gelen arama</small>
       </div>
     </div>
   </div>

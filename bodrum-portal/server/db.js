@@ -135,6 +135,18 @@ function initSchema() {
       'Bodrum İlçe Tarım Müdürlüğü'
     );
   }
+
+  const host = db.prepare('SELECT value FROM settings WHERE key = ?').get('server_host');
+  if (!host) {
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('server_host', '');
+  }
+  const port = db.prepare('SELECT value FROM settings WHERE key = ?').get('server_port');
+  if (!port) {
+    db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(
+      'server_port',
+      String(Number(process.env.PORT) || 3080)
+    );
+  }
 }
 
 initSchema();
